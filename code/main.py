@@ -1,5 +1,5 @@
 import pygame
-import perlin_noise
+import generateChunk as Chunk
 import pickle
 import os
 
@@ -37,23 +37,33 @@ class Game:
         self.done = False
         self.activeWorld = "World_1"
         class Map:
+            def __init__(self) -> None:
+                self.chunkCache = {}
+                
             def getRegionStrFromCCoords(self, cx, cy):
                 return "code/saves/"+game.activeWorld+"/region/"+"2dmcchunk_"+str(cx)+str(cy)+".mc2dchunk"
-            def __init__(self) -> None:
-                pass
+            
             def loadChunk(self, cx, cy):
-
-                pass
+                print(f"Loading chunk ({cx}, {cy}) into cache")
+                if (cx, cy) in self.chunkCache:
+                    print(f"Chunk ({cx}, {cy}) in cache already exists!")
+                else:
+                    if not os.path.isfile(self.getRegionStrFromCCoords(cx, cy)):
+                        with open(self.getRegionStrFromCCoords(cx, cy), 'rb') as file:
+                            b = pickle.load(file)
+                    self.chunkCache[(cx, cy)] = self.getChunk(cx, cy)
+                    
             def generateChunk(self, cx, cy):
-                print(f"Generating chunk CX={cx},CY={cy}")
+                print(f"Generating chunk ({cx}, {cy})")
                 with open(self.getRegionStrFromCCoords(cx, cy), 'wb') as file:
-                    pickle.dump("Hi", file)
+                    pickle.dump(Chunk.generate_chunk(cx, cy), file)
+                
             def getChunk(self, cx, cy):
                 if not os.path.isfile(self.getRegionStrFromCCoords(cx, cy)):
                     self.generateChunk(cx, cy)
-                with open(self.getRegionStrFromCCoords(cx, cy), 'rb') as handle:
-                    b = pickle.load(handle)
-                return b
+                self.loadChunk(cx, cy)
+                return self.chunkCache[(cx, cy)]
+            
         self.map = Map()
     def doGlobalUpdates(self):
         for event in pygame.event.get():
@@ -73,4 +83,4 @@ game.map.getChunk(0, 0)
 
 while not game.done:
     game.doGlobalUpdates()
-print("Hi")
+print("Game is finished")
