@@ -49,18 +49,21 @@ class Game:
                     print(f"Chunk ({cx}, {cy}) in cache already exists!")
                 else:
                     if not os.path.isfile(self.getRegionStrFromCCoords(cx, cy)):
+                        self.generateChunk(cx, cy)
                         with open(self.getRegionStrFromCCoords(cx, cy), 'rb') as file:
-                            b = pickle.load(file)
-                    self.chunkCache[(cx, cy)] = self.getChunk(cx, cy)
-                    
+                            self.chunkCache[(cx, cy)] = pickle.load(file)
+                    else:
+                        with open(self.getRegionStrFromCCoords(cx, cy), 'rb') as file:
+                            self.chunkCache[(cx, cy)] = pickle.load(file)
+                            
             def generateChunk(self, cx, cy):
                 print(f"Generating chunk ({cx}, {cy})")
+                c = Chunk.generate_chunk(cx, cy)
                 with open(self.getRegionStrFromCCoords(cx, cy), 'wb') as file:
-                    pickle.dump(Chunk.generate_chunk(cx, cy), file)
+                    pickle.dump(c, file)
+                self.loadChunk(cx, cy)
                 
             def getChunk(self, cx, cy):
-                if not os.path.isfile(self.getRegionStrFromCCoords(cx, cy)):
-                    self.generateChunk(cx, cy)
                 self.loadChunk(cx, cy)
                 return self.chunkCache[(cx, cy)]
             
@@ -79,7 +82,7 @@ class Chunks:
     def render(self, sx, sy):
         pass
 
-game.map.getChunk(0, 0)
+print(game.map.getChunk(0, 1))
 
 while not game.done:
     game.doGlobalUpdates()
