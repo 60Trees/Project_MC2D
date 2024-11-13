@@ -8,7 +8,8 @@
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
-            "program": "C:/Users/Zac/Desktop/Project_MC2D/code/main.py",
+            "program": "C:/Users/zacha/OneDrive/Desktop/Project_MC2D/code/main.py",
+            //"program": "C:/Users/Zac/Desktop/Project_MC2D/code/main.py",
             "console": "integratedTerminal"
         }
     ]
