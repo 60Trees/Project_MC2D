@@ -14,7 +14,7 @@ def generateBlock(blockCoords, cx, cy, seed):
 
     second_noise_val = secondNoise([(bx + cx * 8) * decimalVal, (by + cy * 8) * decimalVal, bz * decimalVal])
 
-    return BLOCKS.air if noise_val > 0 else (BLOCKS.dirt_block if second_noise_val > 0 else BLOCKS.coarse_dirt)
+    return BLOCKS.air if noise_val > 0 else (BLOCKS.stone if second_noise_val > 0 else BLOCKS.cobblestone)
 def generate_chunk(cx, cy):
     """
     map = [

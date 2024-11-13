@@ -29,11 +29,30 @@ class Window:
         self.chunksRendered = pygame.Surface(self.size)
         self.WIN.fill((100, 100, 100))
         self.gameGUI.fill((100, 100, 100))
-        self.chunksRendered.fill((100, 100, 100))
+        self.chunksRendered.fill((0, 0, 0))
     def update(self):
         self.size = self.WIN.get_size()
         self.width, self.height = self.size
-        self.gameGUI = pygame.Surface(self.size)
+        t = pygame.Surface(self.size)
+        t.blit(self.gameGUI, (0, 0))
+        self.gameGUI = t
+        
+    def updateRenderedChunks(self):
+        print("UPDATING WINDOWSSSSS!")
+        print(f"Previous size: {self.chunksRendered.get_size()}")
+        
+        max_range = lambda lst: [(max(t[0] for t in lst), max(t[1] for t in lst)), (min(t[0] for t in lst), min(t[1] for t in lst))]
+        max_range_shifted = lambda lst: (max(t[0] for t in lst) - min(t[0] for t in lst), max(t[1] for t in lst) - min(t[1] for t in lst))
+        
+        multiply_tuples = lambda t, n: tuple(x * n for x in t)
+        
+        size = multiply_tuples(max_range_shifted(max_range(game.map.chunksRendered)), 32 * 8)
+        print(size)
+        t = pygame.Surface(size)
+        t.blit(self.gameGUI, (0, 0))
+        self.gameGUI = t
+        
+        print(f"New size: {self.chunksRendered.get_size()}")
 
 w = Window()
 
@@ -58,46 +77,42 @@ class Input:
         self.isPushed = pygame.key.get_pressed()
         if e.type == pygame.QUIT:
             done = True
+        elif e.type == pygame.VIDEORESIZE:
+            w.updateRenderedChunks()
 input = Input()
 # -----GAME CLASS-----
+class Map:
+    def __init__(self) -> None:
+        self.chunkCache = {}
+        self.chunksRendered = []
+        
+    def getRegionStrFromCCoords(self, cx, cy):
+        return "code/saves/"+game.activeWorld+"/region/"+"2dmcchunk_"+str(cx)+str(cy)+".mc2dchunk"
+    
+    def renderChunk(self, cx, cy):
+        if (cx, cy) not in self.chunkCache:
+            self.generateChunk(cx, cy)
+        chunkOperations.render(cx, cy)
+                    
+    def generateChunk(self, cx, cy):
+        print(f"Generating chunk ({cx}, {cy})")
+        c = Chunk.generate_chunk(cx, cy)
+        #with open(self.getRegionStrFromCCoords(cx, cy), 'wb') as file:
+        #    pickle.dump(c, file)
+        #self.loadChunk(cx, cy)
+        self.chunkCache[(cx, cy)] = c
+        chunkOperations.render(cx, cy)
+        
+    def getChunk(self, cx, cy):
+        if not (cx, cy) in self.chunkCache:
+            self.generateChunk(cx, cy)
+        return self.chunkCache[(cx, cy)]
+
 class Game:
     def __init__(self) -> None:
         self.clock = pygame.time.Clock()
         self.done = False
         self.activeWorld = "World_1"
-        class Map:
-            def __init__(self) -> None:
-                self.chunkCache = {}
-                self.chunksRendered = []
-                
-            def getRegionStrFromCCoords(self, cx, cy):
-                return "code/saves/"+game.activeWorld+"/region/"+"2dmcchunk_"+str(cx)+str(cy)+".mc2dchunk"
-            
-            def loadChunk(self, cx, cy):
-                print(f"Loading chunk ({cx}, {cy}) into cache")
-                if (cx, cy) in self.chunkCache:
-                    print(f"Chunk ({cx}, {cy}) in cache already exists!")
-                else:
-                    if not os.path.isfile(self.getRegionStrFromCCoords(cx, cy)):
-                        self.generateChunk(cx, cy)
-                        with open(self.getRegionStrFromCCoords(cx, cy), 'rb') as file:
-                            self.chunkCache[(cx, cy)] = pickle.load(file)
-                    else:
-                        with open(self.getRegionStrFromCCoords(cx, cy), 'rb') as file:
-                            self.chunkCache[(cx, cy)] = pickle.load(file)
-                chunkOperations.render(cx, cy)
-                            
-            def generateChunk(self, cx, cy):
-                print(f"Generating chunk ({cx}, {cy})")
-                c = Chunk.generate_chunk(cx, cy)
-                with open(self.getRegionStrFromCCoords(cx, cy), 'wb') as file:
-                    pickle.dump(c, file)
-                self.loadChunk(cx, cy)
-                
-            def getChunk(self, cx, cy):
-                if not (cx, cy) in self.chunkCache:
-                    self.loadChunk(cx, cy)
-                return self.chunkCache[(cx, cy)]
             
         self.map = Map()
     def doGlobalUpdates(self):
@@ -106,11 +121,11 @@ class Game:
                 game.done = True
             input.update(event)
         w.WIN.fill((255, 0, 0))
-        w.gameGUI.fill((0, 0, 0))
-        w.gameGUI.blit(w.chunksRendered, (player.x, player.y))
-        w.WIN.blit(w.gameGUI, (0, 0))
+        #w.gameGUI.fill((0, 0, 0))
+        #w.gameGUI.blit(w.chunksRendered, (player.x, player.y))
+        #w.WIN.blit(w.gameGUI, (0, 0))
 
-        pygame.display.update()
+        
 
 game = Game()
 
@@ -118,73 +133,76 @@ game = Game()
 class Chunks:
     def __init__(self) -> None:
         self.chunkSize = 8
-    def render(cx, cy):
+        self.renderQueue = []
+    def render(self, cx, cy):
         #print(f"Rendering chunk ({cx}, {cy})")
-        if (cx, cy) in game.map.chunksRendered:
-            pass
-        else:
+        #if (cx, cy) in game.map.chunksRendered:
+        #    pass
+        #else:
             game.map.chunksRendered.append((cx, cy))
+            w.updateRenderedChunks()
             for z in range(3):
                 for backwardsx in range(8):
                     for y in range(8):
                         x = 7 - backwardsx
-                        try:
-                            blockToLeft = game.map.chunkCache[(cx, cy)][z][y][x-1]
-                        except:
-                            blockToLeft = BLOCKS.air
-
                         if game.map.chunkCache[(cx, cy)][z][y][x] != BLOCKS.air:
-                            w.chunksRendered.blit(
+                            try:
+                                blockToLeft = game.map.chunkCache[(cx, cy)][z][y][x-1]
+                                print(game.map.chunkCache[(cx, cy)][z][y][x-1])
+                            except:
+                                blockToLeft = BLOCKS.air
+
+                            w.WIN.blit(
                                 pygame.transform.scale(
                                     BLOCKS.ID_toImage(game.map.chunkCache[(cx, cy)][z][y][x]),
-                                    (32, 32)
+                                    (32, 32) # ================================================================================= 1
                                 ),
                                 (
-                                    (cx * 8 * 32) + x * 32 + z * 16,
-                                    (cy * 8 * 32) + y * 32
+                                    (cx * 8 * 32) + x * 32 + z * 16 + player.x,
+                                    (cy * 8 * 32) + y * 32 + player.y
                                 )
                             )
                             if blockToLeft != BLOCKS.air:
-                                w.chunksRendered.blit(
+                                w.WIN.blit(
                                     pygame.transform.scale(
                                         BLOCKS.ID_toImage(game.map.chunkCache[(cx, cy)][z][y][x]),
-                                        (16, 32)
+                                        (16, 32) # ============================================================================= 0.5
                                     ),
                                     (
-                                        (cx * 8 * 32) + x * 32 + z * 16 - 16,
-                                        (cy * 8 * 32) + y * 32
+                                        (cx * 8 * 32) + x * 32 + z * 16 - 16 + player.x,
+                                        (cy * 8 * 32) + y * 32 + player.y
                                     )
                                 )
-                                w.chunksRendered.blit(
+                                w.WIN.blit(
                                     pygame.transform.scale(
                                         BLOCKS.shadow,
-                                        (16, 32)
+                                        (16, 32)# ============================================================================= 0.5
                                     ),
                                     (
-                                        (cx * 8 * 32) + x * 32 + z * 16 - 16,
-                                        (cy * 8 * 32) + y * 32
+                                        (cx * 8 * 32) + x * 32 + z * 16 - 16 + player.x,
+                                        (cy * 8 * 32) + y * 32 + player.y
                                     )
                                 )
                             if z < 2:
-                                w.chunksRendered.blit(
+                                w.WIN.blit(
                                     pygame.transform.scale(
                                         BLOCKS.shadow,
-                                        (48, 32)
+                                        (48, 32)# ============================================================================= 1.5
                                     ),
                                     (
-                                        (cx * 8 * 32) + x * 32 + z * 16 - 16,
-                                        (cy * 8 * 32) + y * 32
+                                        (cx * 8 * 32) + x * 32 + z * 16 - 16 + player.x,
+                                        (cy * 8 * 32) + y * 32 + player.y
                                     )
                                 )
                                 if z < 1:
-                                    w.chunksRendered.blit(
+                                    w.WIN.blit(
                                         pygame.transform.scale(
                                             BLOCKS.shadow,
-                                            (48, 32)
+                                            (48, 32)# ========================================================================= 1.5
                                         ),
                                         (
-                                            (cx * 8 * 32) + x * 32 + z * 16 - 16,
-                                            (cy * 8 * 32) + y * 32
+                                            (cx * 8 * 32) + x * 32 + z * 16 - 16 + player.x,
+                                            (cy * 8 * 32) + y * 32 + player.y
                                         )
                                     )
 
@@ -198,7 +216,7 @@ class Chunks:
         game.map.loadChunk(bx // 8, by // 8)
         return game.map.chunkCache[(bx // 8, by // 8)][bz][by][bx]
 
-chunkOperations = Chunks
+chunkOperations = Chunks()
 
 class Player:
     def __init__(self) -> None:
@@ -223,22 +241,23 @@ class Player:
             self.vx /= 2
         if self.vy != 0:
             self.vy /= 2
-        if (self.x // 32, self.y // 32) in game.map.chunkCache:
-            game.map.loadChunk(self.x // 32 // 8, self.y // 32 // 8)
-        print(f"PX: {self.x // 32}, PY: {self.y // 32}")
+        #if not (-(self.x // 32 // 8), -(self.y // 32 // 8)) in game.map.chunkCache:
+        game.map.renderChunk(-((self.x + w.WIN.get_width() / 2) // 32 // 8), -((self.y + w.WIN.get_height() / 2) // 32 // 8))
+        #print(f"PX: {-(self.x // 32 // 8)}, PY: {-(self.y // 32 // 8)}")
 player = Player()
 
 game.map.getChunk(0, 1)
 game.map.getChunk(0, 0)
 game.map.generateChunk(1, 1)
 game.map.generateChunk(1, 0)
-game.map.generateChunk(2, 1)
-game.map.generateChunk(2, 0)
 
 while not game.done:
     game.doGlobalUpdates()
     player.tick()
+    if len(chunkOperations.renderQueue) != 0:
+        chunkOperations.renderQueue[0]
 
+    pygame.display.update()
     game.clock.tick(60)
         
 print("Game is finished")
